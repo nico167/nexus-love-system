@@ -52,7 +52,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.username = (user as { username?: string }).username;
+        token.username = (user as { username?: string }).username ?? "";
       }
       return token;
     },

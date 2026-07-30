@@ -11,8 +11,8 @@ export function UserBadge() {
   const isAdmin = session.user.role === "admin";
 
   return (
-    <div className="flex items-center gap-4">
-      <div className="text-right">
+    <div className="flex w-full flex-col items-start gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
+      <div className="text-left sm:text-right">
         <p className="font-mono text-sm text-white">{session.user.name}</p>
         <p className="font-mono text-xs text-nexus-muted">
           role:{" "}

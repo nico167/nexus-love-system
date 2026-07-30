@@ -2,7 +2,13 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { UserBadge } from "@/components/auth/UserBadge";
-import { ROLE_LABELS } from "@/lib/rbac";
+import { MemoryCounter } from "@/components/dashboard/MemoryCounter";
+import { NavCard } from "@/components/dashboard/NavCard";
+import { ConsoleEasterEgg } from "@/components/dashboard/ConsoleEasterEgg";
+import { KonamiCode } from "@/components/dashboard/KonamiCode";
+
+// Fecha real de inicio de la relación
+const RELATIONSHIP_START = new Date("2026-02-22T00:00:00");
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -12,53 +18,90 @@ export default async function DashboardPage() {
   }
 
   const isAdmin = session.user.role === "admin";
+  const name = session.user.name;
+  // El nombre de la VIP para el contador (solo se muestra si es VIP)
+  const counterName = isAdmin ? "nosotros" : name;
 
   return (
-    <main
-      className="min-h-screen px-4 py-8"
-      data-custom-note="Bienvenida al centro de operaciones del corazón."
-    >
-      <div className="mx-auto max-w-4xl">
-        <header className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-nexus-muted">
-              Dashboard · Fase 1
-            </p>
-            <h1 className="mt-2 font-mono text-2xl font-bold text-gradient">
-              Hola, {session.user.name}
-            </h1>
-          </div>
-          <UserBadge />
-        </header>
+    <>
+      <ConsoleEasterEgg />
+      <KonamiCode />
 
-        <div className="panel-glow rounded-2xl border border-nexus-border bg-nexus-panel/60 p-8">
-          <div className="font-mono text-sm space-y-3">
-            <p className="text-nexus-muted">
-              <span className="text-nexus-glow">[SYSTEM]</span> Autenticación completada
-              correctamente.
-            </p>
-            <p className="text-nexus-muted">
-              <span className="text-nexus-glow">[ROLE]</span>{" "}
-              {ROLE_LABELS[session.user.role]} —{" "}
-              {isAdmin
-                ? "Acceso total habilitado (gestión de contenido disponible en fases posteriores)."
-                : "Experiencia inmersiva habilitada (lectura e interacción)."}
-            </p>
-            <p className="text-nexus-muted">
-              <span className="text-nexus-glow">[STATUS]</span> Módulos Timeline y Vault se
-              implementarán en las siguientes fases.
-            </p>
-          </div>
-
-          {isAdmin && (
-            <div className="mt-6 rounded-lg border border-nexus-accent/30 bg-nexus-accent/5 p-4">
-              <p className="font-mono text-xs text-nexus-accent">
-                [ADMIN PANEL]: Zona de administración — disponible en Fase 3 y 4
+      <main
+        className="min-h-screen px-3 pb-8 pt-safe sm:px-4"
+        data-custom-note="Bienvenida al centro de operaciones del corazón. Todo funciona porque tú existes."
+      >
+        <div className="mx-auto w-full max-w-2xl">
+          <header className="flex flex-col items-start gap-3 py-5 sm:flex-row sm:items-center sm:justify-between sm:py-6">
+            <div data-custom-note="Sistema activo. Amor en línea. Tú: conectada.">
+              <p className="font-mono text-[10px] xs:text-xs uppercase tracking-[0.25em] text-nexus-muted">
+                <span className="text-nexus-accent">◆</span> Nexus Love System
               </p>
+              <h1 className="mt-0.5 font-display text-lg font-semibold text-white sm:text-xl">
+                Hola, {" "}
+                <span className="text-gradient">{name}</span> {isAdmin ? "⚙️" : "💜"}
+              </h1>
             </div>
-          )}
+
+            <UserBadge />
+          </header>
+
+          <section
+            className="mb-4 xs:mb-5 animate-slide-up"
+            aria-label="Contador de tiempo juntos"
+          >
+            <MemoryCounter
+              startDate={RELATIONSHIP_START}
+              name={counterName ?? "nosotros"}
+            />
+          </section>
+
+          <section
+            className="space-y-3 xs:space-y-4 animate-slide-up-delay"
+            aria-label="Módulos del sistema"
+          >
+            <p className="px-1 font-mono text-[10px] xs:text-xs uppercase tracking-[0.2em] text-nexus-muted">
+              <span className="text-nexus-accent">{'//'}</span> módulos disponibles
+            </p>
+
+            <NavCard
+              href="/timeline"
+              icon="🗺️"
+              title="Our Timeline & Map"
+              subtitle="module.timeline"
+              description="Recorre los momentos especiales en un mapa interactivo. Cada pin, una historia."
+              accentColor="pink"
+              isAdmin={isAdmin}
+              adminNote="Puedes agregar y editar eventos"
+            />
+
+            <NavCard
+              href="/vault"
+              icon="🔒"
+              title="The Digital Vault"
+              subtitle="module.vault"
+              description="Cartas y cápsulas del tiempo. Abiertas cuando más se necesitan."
+              accentColor="violet"
+              isAdmin={isAdmin}
+              adminNote="Puedes crear y programar mensajes"
+            />
+          </section>
+
+          <footer
+            className="mt-8 xs:mt-10 text-center"
+            data-custom-note="Si lees esto, eres increíble. Punto."
+          >
+            <p className="font-mono text-[10px] xs:text-xs text-nexus-muted/40">
+              nexus-love-system · v2.0 · solo usuarios del corazón
+            </p>
+            {isAdmin && (
+              <p className="mt-1 font-mono text-[10px] text-nexus-muted/25">
+                [HINT]: prueba ↑ ↑ ↓ ↓ ← → ← → B A desde teclado
+              </p>
+            )}
+          </footer>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

@@ -12,7 +12,7 @@ export default async function LoginPage() {
 
   return (
     <main
-      className="relative flex min-h-screen items-center justify-center overflow-hidden px-4"
+      className="relative flex min-h-screen items-center justify-center overflow-hidden px-3 py-6 sm:px-4"
       data-custom-note="El acceso a este sistema está reservado para dos corazones conectados."
     >
       <div className="pointer-events-none absolute inset-0">
@@ -21,11 +21,11 @@ export default async function LoginPage() {
       </div>
 
       <div className="relative w-full max-w-md animate-fade-in">
-        <div className="mb-8 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.3em] text-nexus-muted">
+        <div className="mb-6 text-center sm:mb-8">
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-nexus-muted sm:text-xs">
             Nexus Love System v1.0
           </p>
-          <h1 className="mt-3 font-mono text-3xl font-bold text-gradient">
+          <h1 className="mt-3 font-mono text-2xl font-bold text-gradient sm:text-3xl">
             Iniciar sesión
           </h1>
           <p className="mt-2 font-mono text-sm text-nexus-muted">
@@ -33,7 +33,7 @@ export default async function LoginPage() {
           </p>
         </div>
 
-        <div className="panel-glow rounded-2xl border border-nexus-border bg-nexus-panel/80 p-8 backdrop-blur-sm">
+        <div className="panel-glow rounded-2xl border border-nexus-border bg-nexus-panel/80 p-5 backdrop-blur-sm sm:p-8">
           <LoginForm />
         </div>
 

@@ -5,21 +5,94 @@
 @layer base {
   body {
     @apply bg-nexus-dark text-white;
+    /* Safe area para mobile (notch / home bar) */
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   ::selection {
     @apply bg-nexus-accent/40 text-white;
   }
+
+  /* Scrollbar personalizado */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-nexus-border;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-nexus-muted/50;
+  }
 }
 
 @layer utilities {
+  /* Gradiente de texto */
   .text-gradient {
     @apply bg-gradient-to-r from-nexus-accent to-nexus-glow bg-clip-text text-transparent;
   }
 
+  /* Panel con glow sutil */
   .panel-glow {
     box-shadow:
       0 0 0 1px rgba(233, 30, 140, 0.15),
       0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Glow fuerte (hover / activo) */
+  .glow-accent {
+    box-shadow:
+      0 0 20px rgba(233, 30, 140, 0.4),
+      0 0 60px rgba(233, 30, 140, 0.15);
+  }
+
+  /* Tarjeta interactiva — efecto en tap/hover */
+  .card-interactive {
+    @apply transition-all duration-200 active:scale-[0.97];
+  }
+
+  /* Línea de terminal con cursor parpadeante */
+  .terminal-line::after {
+    content: "▋";
+    @apply ml-0.5 animate-blink text-nexus-accent;
+  }
+
+  /* Shimmer gradient para loading / efecto especial */
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(233, 30, 140, 0.12) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+
+  /* Touch target mínimo (44px) para accesibilidad mobile */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe area top padding para iOS */
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 1rem);
+  }
+
+  /* Número grande del contador */
+  .counter-digit {
+    @apply font-mono tabular-nums;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Degradado oscuro abajo (para fondos con blur) */
+  .fade-bottom {
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
   }
 }
