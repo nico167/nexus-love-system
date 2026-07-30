@@ -133,4 +133,41 @@ Contenido al abrir: carta interactiva, video especial, nota de voz o galería de
 
 ## 🚧 Estado
 
-En desarrollo.
+**Fase 1 completada** — Auth + RBAC funcional.
+
+### Setup local
+
+```bash
+# 1. Instalar dependencias
+npm install
+
+# 2. Configurar entorno
+cp .env.example .env
+# Editar DATABASE_URL y NEXTAUTH_SECRET
+
+# 3. MongoDB con replica set (requerido por Prisma para escrituras)
+# Opción A — Docker:
+docker compose up -d
+
+# Opción B — MongoDB Atlas (recomendado para producción)
+
+# 4. Sincronizar schema y seed
+npx prisma db push
+npm run db:seed
+
+# 5. Desarrollo
+npm run dev
+```
+
+### Credenciales de prueba (seed)
+
+| Rol   | Email              | Password   |
+|-------|--------------------|------------|
+| Admin | admin@nexus.local  | admin123   |
+| VIP   | vip@nexus.local    | 14022024   |
+
+### Verificar Fase 1
+
+```bash
+npx tsx scripts/test-auth.ts
+```
