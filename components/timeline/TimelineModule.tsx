@@ -28,8 +28,7 @@ interface EventFormState {
   lat: string;
   lng: string;
   patchNotes: string;
-  imageUrl: string;
-  videoUrl: string;
+  media: TimelineMedia[];
 }
 
 const EMPTY_FORM: EventFormState = {
@@ -40,8 +39,7 @@ const EMPTY_FORM: EventFormState = {
   lat: "",
   lng: "",
   patchNotes: "",
-  imageUrl: "",
-  videoUrl: "",
+  media: [],
 };
 
 function toInputDate(value: string): string {
@@ -53,9 +51,6 @@ function toInputDate(value: string): string {
 }
 
 function toFormFromEvent(event: TimelineEvent): EventFormState {
-  const image = event.media.find((entry) => entry.type === "image");
-  const video = event.media.find((entry) => entry.type === "video");
-
   return {
     title: event.title,
     commitTag: event.commitTag,
@@ -64,9 +59,15 @@ function toFormFromEvent(event: TimelineEvent): EventFormState {
     lat: String(event.coordinates.lat),
     lng: String(event.coordinates.lng),
     patchNotes: event.patchNotes.join("\n"),
-    imageUrl: image?.url ?? "",
-    videoUrl: video?.url ?? "",
+    media: event.media.map((entry) => ({ ...entry })),
   };
+}
+
+function createLocalId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 interface CloudinarySignatureResponse {
@@ -128,7 +129,6 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<TimelineEvent | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isReorderingMedia, setIsReorderingMedia] = useState(false);
   const [isReorderingNotes, setIsReorderingNotes] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
@@ -191,71 +191,62 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
     setIsPickingCoordinates(false);
   }
 
-  async function handleImageFileChange(file: File | undefined) {
-    if (!file) {
+  async function handleAddMediaFiles(files: FileList | null, type: "image" | "video") {
+    if (!files || files.length === 0) {
       return;
     }
-    setIsUploadingImage(true);
+
+    const fileArray = Array.from(files);
+    const setUploading = type === "image" ? setIsUploadingImage : setIsUploadingVideo;
+
+    setUploading(true);
     setFormError("");
+
     try {
-      const url = await uploadToCloudinary(file);
-      updateField("imageUrl", url);
+      for (const file of fileArray) {
+        const url = await uploadToCloudinary(file);
+        const newItem: TimelineMedia = {
+          id: createLocalId(),
+          type,
+          url,
+          alt: `${type === "image" ? "Foto" : "Video"} de ${formState.title || "evento"}`,
+        };
+        setFormState((prev) => ({ ...prev, media: [...prev.media, newItem] }));
+      }
     } catch (error) {
       setFormError(
-        error instanceof Error ? error.message : "Error subiendo la imagen"
+        error instanceof Error
+          ? error.message
+          : `Error subiendo ${type === "image" ? "la imagen" : "el video"}`
       );
     } finally {
-      setIsUploadingImage(false);
+      setUploading(false);
     }
   }
 
-  async function handleVideoFileChange(file: File | undefined) {
-    if (!file) {
-      return;
-    }
-    setIsUploadingVideo(true);
-    setFormError("");
-    try {
-      const url = await uploadToCloudinary(file);
-      updateField("videoUrl", url);
-    } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : "Error subiendo el video"
-      );
-    } finally {
-      setIsUploadingVideo(false);
-    }
+  function removeMediaItem(id: string) {
+    setFormState((prev) => ({
+      ...prev,
+      media: prev.media.filter((item) => item.id !== id),
+    }));
   }
 
-  function reorderMedia(direction: "up" | "down", index: number) {
-    if (!editingEventId) {
-      return;
-    }
-
-    const current = [...events];
-    const targetEvent = current.find((entry) => entry.id === editingEventId);
-    if (!targetEvent) {
-      return;
-    }
-
-    const sortedMedia = [...targetEvent.media].sort((a, b) => a.id.localeCompare(b.id));
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= sortedMedia.length) {
-      return;
-    }
-
-    const reordered = [...sortedMedia];
-    const temp = reordered[index];
-    reordered[index] = reordered[swapIndex];
-    reordered[swapIndex] = temp;
-
-    const updated = current.map((entry) =>
-      entry.id === editingEventId
-        ? { ...entry, media: reordered }
-        : entry
-    );
-
-    setEvents(updated);
+  function moveMediaItem(id: string, direction: "up" | "down") {
+    setFormState((prev) => {
+      const index = prev.media.findIndex((item) => item.id === id);
+      if (index < 0) {
+        return prev;
+      }
+      const swapIndex = direction === "up" ? index - 1 : index + 1;
+      if (swapIndex < 0 || swapIndex >= prev.media.length) {
+        return prev;
+      }
+      const media = [...prev.media];
+      const temp = media[index];
+      media[index] = media[swapIndex];
+      media[swapIndex] = temp;
+      return { ...prev, media };
+    });
   }
 
   function reorderNotes(direction: "up" | "down", index: number) {
@@ -333,22 +324,11 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
       return;
     }
 
-    const media = [
-      formState.imageUrl
-        ? {
-            type: "image" as const,
-            url: formState.imageUrl,
-            alt: `Foto de ${formState.title}`,
-          }
-        : null,
-      formState.videoUrl
-        ? {
-            type: "video" as const,
-            url: formState.videoUrl,
-            alt: `Video de ${formState.title}`,
-          }
-        : null,
-    ].filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+    const media = formState.media.map((item) => ({
+      type: item.type,
+      url: item.url,
+      alt: item.alt,
+    }));
 
     const payload = {
       title: formState.title.trim(),
@@ -483,7 +463,7 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
               {eventItem.media.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-nexus-muted">
-                    Galeria
+                    Galeria ({eventItem.media.length})
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {eventItem.media.map((asset) =>
@@ -725,107 +705,99 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-nexus-muted">
-                    Media
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setIsReorderingMedia((prev) => !prev)}
-                    className="font-mono text-[10px] uppercase tracking-[0.15em] text-nexus-glow"
-                  >
-                    {isReorderingMedia ? "cerrar reorden" : "reordenar"}
-                  </button>
-                </div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-nexus-muted">
+                  Media ({formState.media.length})
+                </p>
 
                 <div>
                   <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-nexus-muted">
-                    Imagen
+                    Agregar imagenes
                   </label>
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     disabled={isUploadingImage}
-                    onChange={(event) => handleImageFileChange(event.target.files?.[0])}
+                    onChange={(event) => {
+                      handleAddMediaFiles(event.target.files, "image");
+                      event.target.value = "";
+                    }}
                     className="w-full rounded-lg border border-nexus-border bg-nexus-dark/70 px-3 py-2 font-mono text-xs text-white outline-none file:mr-3 file:rounded file:border-0 file:bg-nexus-accent file:px-3 file:py-1 file:font-mono file:text-xs file:text-white disabled:opacity-50"
                   />
                   {isUploadingImage && (
-                    <p className="mt-1 font-mono text-[10px] text-nexus-glow">subiendo imagen...</p>
-                  )}
-                  {formState.imageUrl && !isUploadingImage && (
-                    <p className="mt-1 truncate font-mono text-[10px] text-nexus-muted">
-                      ✓ {formState.imageUrl}
-                    </p>
+                    <p className="mt-1 font-mono text-[10px] text-nexus-glow">subiendo imagen(es)...</p>
                   )}
                 </div>
 
                 <div>
                   <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-nexus-muted">
-                    Video
+                    Agregar videos
                   </label>
                   <input
                     type="file"
                     accept="video/*"
+                    multiple
                     disabled={isUploadingVideo}
-                    onChange={(event) => handleVideoFileChange(event.target.files?.[0])}
+                    onChange={(event) => {
+                      handleAddMediaFiles(event.target.files, "video");
+                      event.target.value = "";
+                    }}
                     className="w-full rounded-lg border border-nexus-border bg-nexus-dark/70 px-3 py-2 font-mono text-xs text-white outline-none file:mr-3 file:rounded file:border-0 file:bg-nexus-accent file:px-3 file:py-1 file:font-mono file:text-xs file:text-white disabled:opacity-50"
                   />
                   {isUploadingVideo && (
-                    <p className="mt-1 font-mono text-[10px] text-nexus-glow">subiendo video...</p>
-                  )}
-                  {formState.videoUrl && !isUploadingVideo && (
-                    <p className="mt-1 truncate font-mono text-[10px] text-nexus-muted">
-                      ✓ {formState.videoUrl}
-                    </p>
+                    <p className="mt-1 font-mono text-[10px] text-nexus-glow">subiendo video(s)...</p>
                   )}
                 </div>
 
-                {isReorderingMedia && (
-                  <div className="rounded-lg border border-nexus-border/60 bg-nexus-dark/40 p-2">
-                    {[
-                      formState.imageUrl ? { id: "image", type: "image" as const, url: formState.imageUrl, alt: "Imagen" } : null,
-                      formState.videoUrl ? { id: "video", type: "video" as const, url: formState.videoUrl, alt: "Video" } : null,
-                    ]
-                      .filter(Boolean)
-                      .map((asset, index, arr) => (
-                        <div key={`${asset?.id}-${index}`} className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-nexus-border/50 px-2 py-2">
-                          <span className="font-mono text-xs text-nexus-muted">
-                            {(asset?.type === "image" ? "Imagen" : "Video")}
-                          </span>
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (index === 0) return;
-                                const current = [formState.imageUrl, formState.videoUrl];
-                                const temp = current[index];
-                                current[index] = current[index - 1];
-                                current[index - 1] = temp;
-                                updateField("imageUrl", current[0] ?? "");
-                                updateField("videoUrl", current[1] ?? "");
-                              }}
-                              className="rounded border border-nexus-border px-2 py-1 font-mono text-[10px] text-nexus-muted"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (index === arr.length - 1) return;
-                                const current = [formState.imageUrl, formState.videoUrl];
-                                const temp = current[index];
-                                current[index] = current[index + 1];
-                                current[index + 1] = temp;
-                                updateField("imageUrl", current[0] ?? "");
-                                updateField("videoUrl", current[1] ?? "");
-                              }}
-                              className="rounded border border-nexus-border px-2 py-1 font-mono text-[10px] text-nexus-muted"
-                            >
-                              ↓
-                            </button>
+                {formState.media.length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-nexus-border/60 bg-nexus-dark/40 p-2">
+                    {formState.media.map((asset, index, arr) => (
+                      <div
+                        key={asset.id}
+                        className="flex items-center gap-2 rounded-lg border border-nexus-border/50 p-2"
+                      >
+                        {asset.type === "image" ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={asset.url}
+                            alt={asset.alt}
+                            className="h-12 w-12 flex-shrink-0 rounded-md border border-nexus-border object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-nexus-border bg-nexus-dark font-mono text-[10px] text-nexus-muted">
+                            VIDEO
                           </div>
+                        )}
+                        <span className="flex-1 truncate font-mono text-[10px] text-nexus-muted">
+                          {asset.type === "image" ? "Imagen" : "Video"} · {asset.url}
+                        </span>
+                        <div className="flex flex-shrink-0 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveMediaItem(asset.id, "up")}
+                            disabled={index === 0}
+                            className="rounded border border-nexus-border px-2 py-1 font-mono text-[10px] text-nexus-muted disabled:opacity-30"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveMediaItem(asset.id, "down")}
+                            disabled={index === arr.length - 1}
+                            className="rounded border border-nexus-border px-2 py-1 font-mono text-[10px] text-nexus-muted disabled:opacity-30"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeMediaItem(asset.id)}
+                            className="rounded border border-red-500/30 bg-red-500/10 px-2 py-1 font-mono text-[10px] text-red-300"
+                          >
+                            eliminar
+                          </button>
                         </div>
-                      ))}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
