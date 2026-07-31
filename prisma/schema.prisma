@@ -12,6 +12,11 @@ enum Role {
   VIP
 }
 
+enum TimelineMediaType {
+  IMAGE
+  VIDEO
+}
+
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   username  String   @unique
@@ -20,4 +25,29 @@ model User {
   role      Role     @default(VIP)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model TimelineEvent {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  title      String
+  commitTag  String
+  date       DateTime
+  location   String
+  latitude   Float
+  longitude  Float
+  patchNotes String[]
+  media      TimelineMedia[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+model TimelineMedia {
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  eventId   String            @db.ObjectId
+  event     TimelineEvent     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  type      TimelineMediaType
+  url       String
+  alt       String
+  order     Int               @default(0)
+  createdAt DateTime          @default(now())
 }
