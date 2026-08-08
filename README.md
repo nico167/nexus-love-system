@@ -161,10 +161,10 @@ npm run dev
 
 ### Credenciales de prueba (seed)
 
-| Rol   | Email              | Password   |
+| Rol   | username           | Password   |
 |-------|--------------------|------------|
-| Admin | admin@nexus.local  | admin123   |
-| VIP   | vip@nexus.local    | 14022024   |
+| Admin | nicocarmona        | nico16783* |
+| VIP   | isi                | 22022026   |
 
 ### Verificar Fase 1
 
