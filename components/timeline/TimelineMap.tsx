@@ -16,7 +16,6 @@ interface TimelineMapProps {
   events: TimelineEvent[];
   activeEventId: string | null;
   onSelectEvent: (eventId: string) => void;
-  focusToken?: number;
   pickerMode?: boolean;
   pickedCoordinates?: { lat: number; lng: number } | null;
   onPickCoordinates?: (coords: { lat: number; lng: number }) => void;
@@ -69,11 +68,9 @@ function FitBounds({ events }: { events: TimelineEvent[] }) {
 function FocusActiveEvent({
   activeEventId,
   events,
-  focusToken,
 }: {
   activeEventId: string | null;
   events: TimelineEvent[];
-  focusToken?: number;
 }) {
   const map = useMap();
 
@@ -87,11 +84,11 @@ function FocusActiveEvent({
       return;
     }
 
-    map.flyTo([target.coordinates.lat, target.coordinates.lng], 18, {
+    map.flyTo([target.coordinates.lat, target.coordinates.lng], 12, {
       animate: true,
       duration: 0.8,
     });
-  }, [activeEventId, events, map, focusToken]);
+  }, [activeEventId, events, map]);
 
   return null;
 }
@@ -116,7 +113,6 @@ export function TimelineMap({
   events,
   activeEventId,
   onSelectEvent,
-  focusToken,
   pickerMode = false,
   pickedCoordinates = null,
   onPickCoordinates,
@@ -125,7 +121,7 @@ export function TimelineMap({
   const fallbackCenter: [number, number] = [4.5709, -74.2973];
 
   return (
-    <div className="relative isolate z-0 overflow-hidden rounded-2xl border border-nexus-border bg-nexus-panel/50 panel-glow">
+    <div className="overflow-hidden rounded-2xl border border-nexus-border bg-nexus-panel/50 panel-glow">
       <MapContainer
         center={fallbackCenter}
         zoom={5}
@@ -138,7 +134,7 @@ export function TimelineMap({
         />
 
         <FitBounds events={events} />
-        <FocusActiveEvent activeEventId={activeEventId} events={events} focusToken={focusToken} />
+        <FocusActiveEvent activeEventId={activeEventId} events={events} />
         <MapClickCapture
           pickerMode={pickerMode}
           onPickCoordinates={onPickCoordinates}

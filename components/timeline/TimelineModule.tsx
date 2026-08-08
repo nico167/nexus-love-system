@@ -28,7 +28,8 @@ interface EventFormState {
   lat: string;
   lng: string;
   patchNotes: string;
-  media: TimelineMedia[];
+  imageUrl: string;
+  videoUrl: string;
 }
 
 const EMPTY_FORM: EventFormState = {
@@ -39,7 +40,8 @@ const EMPTY_FORM: EventFormState = {
   lat: "",
   lng: "",
   patchNotes: "",
-  media: [],
+  imageUrl: "",
+  videoUrl: "",
 };
 
 function toInputDate(value: string): string {
@@ -51,6 +53,9 @@ function toInputDate(value: string): string {
 }
 
 function toFormFromEvent(event: TimelineEvent): EventFormState {
+  const image = event.media.find((entry) => entry.type === "image");
+  const video = event.media.find((entry) => entry.type === "video");
+
   return {
     title: event.title,
     commitTag: event.commitTag,
@@ -59,61 +64,15 @@ function toFormFromEvent(event: TimelineEvent): EventFormState {
     lat: String(event.coordinates.lat),
     lng: String(event.coordinates.lng),
     patchNotes: event.patchNotes.join("\n"),
-    media: event.media.map((entry) => ({ ...entry })),
+    imageUrl: image?.url ?? "",
+    videoUrl: video?.url ?? "",
   };
-}
-
-function createLocalId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-interface CloudinarySignatureResponse {
-  timestamp: number;
-  signature: string;
-  apiKey: string;
-  cloudName: string;
-  folder: string;
-}
-
-async function uploadToCloudinary(file: File): Promise<string> {
-  const sigResponse = await fetch("/api/cloudinary/signature", { method: "POST" });
-  if (!sigResponse.ok) {
-    throw new Error("No se pudo iniciar la subida a Cloudinary");
-  }
-  const { timestamp, signature, apiKey, cloudName, folder } =
-    (await sigResponse.json()) as CloudinarySignatureResponse;
-
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("api_key", apiKey);
-  formData.append("timestamp", String(timestamp));
-  formData.append("signature", signature);
-  formData.append("folder", folder);
-
-  const uploadResponse = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
-
-  if (!uploadResponse.ok) {
-    throw new Error("No se pudo subir el archivo a Cloudinary");
-  }
-
-  const data = (await uploadResponse.json()) as { secure_url: string };
-  return data.secure_url;
 }
 
 export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) {
   const [events, setEvents] = useState<TimelineEvent[]>(
     initialEvents.length > 0 ? initialEvents : timelineSeed
   );
-  const [mapFocusToken, setMapFocusToken] = useState(0);
   const [activeEventId, setActiveEventId] = useState<string | null>(
     initialEvents[0]?.id ?? null
   );
@@ -129,9 +88,8 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<TimelineEvent | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isReorderingMedia, setIsReorderingMedia] = useState(false);
   const [isReorderingNotes, setIsReorderingNotes] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
 
   const sortedEvents = useMemo(
     () =>
@@ -149,7 +107,6 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
 
   function focusOnMap(eventId: string) {
     setActiveEventId(eventId);
-    setMapFocusToken((token) => token + 1);
     const mapElement = document.getElementById("timeline-map-container");
     mapElement?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -191,62 +148,35 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
     setIsPickingCoordinates(false);
   }
 
-  async function handleAddMediaFiles(files: FileList | null, type: "image" | "video") {
-    if (!files || files.length === 0) {
+  function reorderMedia(direction: "up" | "down", index: number) {
+    if (!editingEventId) {
       return;
     }
 
-    const fileArray = Array.from(files);
-    const setUploading = type === "image" ? setIsUploadingImage : setIsUploadingVideo;
-
-    setUploading(true);
-    setFormError("");
-
-    try {
-      for (const file of fileArray) {
-        const url = await uploadToCloudinary(file);
-        const newItem: TimelineMedia = {
-          id: createLocalId(),
-          type,
-          url,
-          alt: `${type === "image" ? "Foto" : "Video"} de ${formState.title || "evento"}`,
-        };
-        setFormState((prev) => ({ ...prev, media: [...prev.media, newItem] }));
-      }
-    } catch (error) {
-      setFormError(
-        error instanceof Error
-          ? error.message
-          : `Error subiendo ${type === "image" ? "la imagen" : "el video"}`
-      );
-    } finally {
-      setUploading(false);
+    const current = [...events];
+    const targetEvent = current.find((entry) => entry.id === editingEventId);
+    if (!targetEvent) {
+      return;
     }
-  }
 
-  function removeMediaItem(id: string) {
-    setFormState((prev) => ({
-      ...prev,
-      media: prev.media.filter((item) => item.id !== id),
-    }));
-  }
+    const sortedMedia = [...targetEvent.media].sort((a, b) => a.id.localeCompare(b.id));
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= sortedMedia.length) {
+      return;
+    }
 
-  function moveMediaItem(id: string, direction: "up" | "down") {
-    setFormState((prev) => {
-      const index = prev.media.findIndex((item) => item.id === id);
-      if (index < 0) {
-        return prev;
-      }
-      const swapIndex = direction === "up" ? index - 1 : index + 1;
-      if (swapIndex < 0 || swapIndex >= prev.media.length) {
-        return prev;
-      }
-      const media = [...prev.media];
-      const temp = media[index];
-      media[index] = media[swapIndex];
-      media[swapIndex] = temp;
-      return { ...prev, media };
-    });
+    const reordered = [...sortedMedia];
+    const temp = reordered[index];
+    reordered[index] = reordered[swapIndex];
+    reordered[swapIndex] = temp;
+
+    const updated = current.map((entry) =>
+      entry.id === editingEventId
+        ? { ...entry, media: reordered }
+        : entry
+    );
+
+    setEvents(updated);
   }
 
   function reorderNotes(direction: "up" | "down", index: number) {
@@ -319,16 +249,22 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
       return;
     }
 
-    if (isUploadingImage || isUploadingVideo) {
-      setFormError("Espera a que termine de subir el archivo.");
-      return;
-    }
-
-    const media = formState.media.map((item) => ({
-      type: item.type,
-      url: item.url,
-      alt: item.alt,
-    }));
+    const media = [
+      formState.imageUrl
+        ? {
+            type: "image" as const,
+            url: formState.imageUrl,
+            alt: `Foto de ${formState.title}`,
+          }
+        : null,
+      formState.videoUrl
+        ? {
+            type: "video" as const,
+            url: formState.videoUrl,
+            alt: `Video de ${formState.title}`,
+          }
+        : null,
+    ].filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
     const payload = {
       title: formState.title.trim(),
@@ -398,7 +334,6 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
           events={sortedEvents}
           activeEventId={activeEventId}
           onSelectEvent={focusEvent}
-          focusToken={mapFocusToken}
           pickerMode={isAdmin && isFormOpen && isPickingCoordinates}
           pickedCoordinates={pickedCoordinates}
           onPickCoordinates={onPickCoordinates}
@@ -432,8 +367,7 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
                       day: "2-digit",
                       month: "long",
                       year: "numeric",
-                      timeZone: "UTC",
-                    })}
+                    })}{" "}
                     · {eventItem.location}
                   </p>
                 </div>
@@ -463,7 +397,7 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
               {eventItem.media.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-nexus-muted">
-                    Galeria ({eventItem.media.length})
+                    Galeria
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {eventItem.media.map((asset) =>
@@ -522,7 +456,7 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
         <button
           type="button"
           onClick={openCreateForm}
-          className="fixed bottom-5 left-4 z-40 rounded-full border border-nexus-accent/60 bg-nexus-accent px-5 py-3 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-[0_10px_30px_rgba(233,30,140,0.35)] transition hover:brightness-110 sm:left-6"
+          className="fixed bottom-5 right-4 z-40 rounded-full border border-nexus-accent/60 bg-nexus-accent px-5 py-3 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-[0_10px_30px_rgba(233,30,140,0.35)] transition hover:brightness-110 sm:right-6"
         >
           + agregar evento
         </button>
@@ -530,18 +464,18 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
 
       {isAdmin && isFormOpen && (
         <div
-          className="fixed inset-0 z-[1100] flex items-end justify-center bg-black/70 p-3 sm:items-center"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-3 sm:items-center"
           onClick={closeForm}
         >
           <div
-            className="relative z-[1101] max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-nexus-border bg-nexus-panel p-4 xs:p-5"
+            className="relative z-[70] max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-nexus-border bg-nexus-panel p-4 xs:p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="font-display text-xl font-semibold text-white">
               {editingEventId ? "Editar evento" : "Nuevo evento"}
             </h3>
             <p className="mt-1 font-mono text-xs text-nexus-muted">
-              Guarda eventos reales en base de datos. Fotos y videos se suben a Cloudinary.
+              Guarda eventos reales en base de datos. Cloudinary se integra despues.
             </p>
 
             {formError && (
@@ -705,99 +639,76 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
               </div>
 
               <div className="space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-nexus-muted">
-                  Media ({formState.media.length})
-                </p>
-
-                <div>
-                  <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-nexus-muted">
-                    Agregar imagenes
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    disabled={isUploadingImage}
-                    onChange={(event) => {
-                      handleAddMediaFiles(event.target.files, "image");
-                      event.target.value = "";
-                    }}
-                    className="w-full rounded-lg border border-nexus-border bg-nexus-dark/70 px-3 py-2 font-mono text-xs text-white outline-none file:mr-3 file:rounded file:border-0 file:bg-nexus-accent file:px-3 file:py-1 file:font-mono file:text-xs file:text-white disabled:opacity-50"
-                  />
-                  {isUploadingImage && (
-                    <p className="mt-1 font-mono text-[10px] text-nexus-glow">subiendo imagen(es)...</p>
-                  )}
+                <div className="flex items-center justify-between">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-nexus-muted">
+                    Media
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsReorderingMedia((prev) => !prev)}
+                    className="font-mono text-[10px] uppercase tracking-[0.15em] text-nexus-glow"
+                  >
+                    {isReorderingMedia ? "cerrar reorden" : "reordenar"}
+                  </button>
                 </div>
-
-                <div>
-                  <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-nexus-muted">
-                    Agregar videos
-                  </label>
-                  <input
-                    type="file"
-                    accept="video/*"
-                    multiple
-                    disabled={isUploadingVideo}
-                    onChange={(event) => {
-                      handleAddMediaFiles(event.target.files, "video");
-                      event.target.value = "";
-                    }}
-                    className="w-full rounded-lg border border-nexus-border bg-nexus-dark/70 px-3 py-2 font-mono text-xs text-white outline-none file:mr-3 file:rounded file:border-0 file:bg-nexus-accent file:px-3 file:py-1 file:font-mono file:text-xs file:text-white disabled:opacity-50"
-                  />
-                  {isUploadingVideo && (
-                    <p className="mt-1 font-mono text-[10px] text-nexus-glow">subiendo video(s)...</p>
-                  )}
-                </div>
-
-                {formState.media.length > 0 && (
-                  <div className="space-y-2 rounded-lg border border-nexus-border/60 bg-nexus-dark/40 p-2">
-                    {formState.media.map((asset, index, arr) => (
-                      <div
-                        key={asset.id}
-                        className="flex items-center gap-2 rounded-lg border border-nexus-border/50 p-2"
-                      >
-                        {asset.type === "image" ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={asset.url}
-                            alt={asset.alt}
-                            className="h-12 w-12 flex-shrink-0 rounded-md border border-nexus-border object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-nexus-border bg-nexus-dark font-mono text-[10px] text-nexus-muted">
-                            VIDEO
+                <input
+                  value={formState.imageUrl}
+                  onChange={(event) => updateField("imageUrl", event.target.value)}
+                  placeholder="URL de imagen (opcional)"
+                  className="w-full rounded-lg border border-nexus-border bg-nexus-dark/70 px-3 py-2 font-mono text-sm text-white outline-none focus:border-nexus-accent"
+                />
+                <input
+                  value={formState.videoUrl}
+                  onChange={(event) => updateField("videoUrl", event.target.value)}
+                  placeholder="URL de video (opcional)"
+                  className="w-full rounded-lg border border-nexus-border bg-nexus-dark/70 px-3 py-2 font-mono text-sm text-white outline-none focus:border-nexus-accent"
+                />
+                {isReorderingMedia && (
+                  <div className="rounded-lg border border-nexus-border/60 bg-nexus-dark/40 p-2">
+                    {[
+                      formState.imageUrl ? { id: "image", type: "image" as const, url: formState.imageUrl, alt: "Imagen" } : null,
+                      formState.videoUrl ? { id: "video", type: "video" as const, url: formState.videoUrl, alt: "Video" } : null,
+                    ]
+                      .filter(Boolean)
+                      .map((asset, index, arr) => (
+                        <div key={`${asset?.id}-${index}`} className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-nexus-border/50 px-2 py-2">
+                          <span className="font-mono text-xs text-nexus-muted">
+                            {(asset?.type === "image" ? "Imagen" : "Video")}
+                          </span>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (index === 0) return;
+                                const current = [formState.imageUrl, formState.videoUrl];
+                                const temp = current[index];
+                                current[index] = current[index - 1];
+                                current[index - 1] = temp;
+                                updateField("imageUrl", current[0] ?? "");
+                                updateField("videoUrl", current[1] ?? "");
+                              }}
+                              className="rounded border border-nexus-border px-2 py-1 font-mono text-[10px] text-nexus-muted"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (index === arr.length - 1) return;
+                                const current = [formState.imageUrl, formState.videoUrl];
+                                const temp = current[index];
+                                current[index] = current[index + 1];
+                                current[index + 1] = temp;
+                                updateField("imageUrl", current[0] ?? "");
+                                updateField("videoUrl", current[1] ?? "");
+                              }}
+                              className="rounded border border-nexus-border px-2 py-1 font-mono text-[10px] text-nexus-muted"
+                            >
+                              ↓
+                            </button>
                           </div>
-                        )}
-                        <span className="flex-1 truncate font-mono text-[10px] text-nexus-muted">
-                          {asset.type === "image" ? "Imagen" : "Video"} · {asset.url}
-                        </span>
-                        <div className="flex flex-shrink-0 gap-1">
-                          <button
-                            type="button"
-                            onClick={() => moveMediaItem(asset.id, "up")}
-                            disabled={index === 0}
-                            className="rounded border border-nexus-border px-2 py-1 font-mono text-[10px] text-nexus-muted disabled:opacity-30"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveMediaItem(asset.id, "down")}
-                            disabled={index === arr.length - 1}
-                            className="rounded border border-nexus-border px-2 py-1 font-mono text-[10px] text-nexus-muted disabled:opacity-30"
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeMediaItem(asset.id)}
-                            className="rounded border border-red-500/30 bg-red-500/10 px-2 py-1 font-mono text-[10px] text-red-300"
-                          >
-                            eliminar
-                          </button>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </div>
@@ -813,7 +724,7 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving || isUploadingImage || isUploadingVideo}
+                  disabled={isSaving}
                   className="w-1/2 rounded-lg bg-gradient-to-r from-nexus-accent to-nexus-glow px-3 py-2 font-mono text-xs font-semibold uppercase tracking-[0.15em] text-white disabled:opacity-60"
                 >
                   {isSaving ? "guardando..." : "guardar"}
@@ -825,7 +736,7 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
       )}
 
       {isAdmin && isDeleteConfirmOpen && eventToDelete && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 p-4">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-nexus-border bg-nexus-panel p-4">
             <h3 className="font-display text-xl font-semibold text-white">Eliminar evento</h3>
             <p className="mt-2 font-mono text-sm text-nexus-muted">

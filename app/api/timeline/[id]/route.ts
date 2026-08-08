@@ -6,9 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { prismaEventToTimelineEvent, validateTimelineInput } from "@/lib/timeline";
 
 interface RouteContext {
-  params: Promise<{
+  params: {
     id: string;
-  }>;
+  };
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
@@ -21,10 +21,8 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { id } = await context.params;
-
   const existing = await prisma.timelineEvent.findUnique({
-    where: { id },
+    where: { id: context.params.id },
     select: { id: true },
   });
 
@@ -59,10 +57,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
-  const { id } = await context.params;
-
   const existing = await prisma.timelineEvent.findUnique({
-    where: { id },
+    where: { id: context.params.id },
     select: { id: true },
   });
 
