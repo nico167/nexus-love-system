@@ -74,17 +74,6 @@ export default async function DashboardPage() {
               isAdmin={isAdmin}
               adminNote="Puedes agregar y editar eventos"
             />
-
-            <NavCard
-              href="/vault"
-              icon="🔒"
-              title="The Digital Vault"
-              subtitle="module.vault"
-              description="Cartas y cápsulas del tiempo. Abiertas cuando más se necesitan."
-              accentColor="violet"
-              isAdmin={isAdmin}
-              adminNote="Puedes crear y programar mensajes"
-            />
           </section>
 
           <footer
