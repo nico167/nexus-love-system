@@ -474,7 +474,8 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
                           src={asset.url}
                           alt={asset.alt}
                           loading="lazy"
-                          className="h-44 w-full rounded-xl border border-nexus-border object-cover"
+                          className="w-full rounded-xl border border-nexus-border bg-nexus-dark/30 object-contain"
+                          style={{ aspectRatio: "4 / 3" }}
                         />
                       ) : (
                         <video
@@ -482,7 +483,8 @@ export function TimelineModule({ initialEvents, isAdmin }: TimelineModuleProps) 
                           src={asset.url}
                           controls
                           playsInline
-                          className="h-44 w-full rounded-xl border border-nexus-border object-cover"
+                          className="w-full rounded-xl border border-nexus-border bg-nexus-dark/30 object-cover"
+                          style={{ aspectRatio: "4 / 3" }}
                         >
                           Tu navegador no soporta video.
                         </video>
