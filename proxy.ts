@@ -32,7 +32,7 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/timeline/:path*",
-    "/vault/:path*",
+    "/letters/:path*",
     "/api/admin/:path*",
     "/login",
   ],

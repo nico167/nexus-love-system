@@ -1,13 +1,13 @@
 # Nexus Love System
 
-Sistema web interactivo con autenticación por roles (Admin/VIP), timeline de recuerdos con mapa integrado, y un "Digital Vault" de mensajes con desbloqueo temporal y contextual.
+Sistema web interactivo con autenticación por roles (Admin/VIP), timeline de recuerdos con mapa integrado y un módulo de cartas personales.
 
 ## ✨ Features
 
 - 🔐 **Auth con RBAC** — Roles Admin y VIP User, login personalizado
 - 📊 **Dynamic Memory Counter** — Contador en tiempo real estilo "system uptime"
 - 🗺️ **Timeline interactivo** — Mapa con pines personalizados sincronizado a tarjetas de eventos (estilo commit/changelog)
-- 🔒 **Digital Vault** — Cartas "Open When..." y cápsulas temporales con countdown
+- ✉️ **Our Letters** — Cartas personales escritas por el admin para la usuaria VIP
 - 🎮 **Easter Eggs** — Konami code, mensajes en consola, atributos ocultos en HTML
 - 📱 Diseño responsivo, mobile-first
 
@@ -33,7 +33,7 @@ Sistema web interactivo con autenticación por roles (Admin/VIP), timeline de re
 
 Dos roles de usuario para mantener la experiencia y la administración separadas:
 
-- **Rol Admin (Tú):** acceso total. Formularios para agregar/editar eventos del timeline, subir contenido multimedia, programar cartas en el Vault y gestionar fechas de desbloqueo.
+- **Rol Admin (Tú):** acceso total. Formularios para agregar/editar eventos del timeline, subir contenido multimedia y gestionar cartas.
 - **Rol VIP User (Ella):** experiencia inmersiva. Acceso a la lectura, apertura de cartas desbloqueadas, interacción con el mapa y desencadenamiento de Easter Eggs.
 
 **Login personalizado:**
@@ -67,7 +67,7 @@ Pantalla principal desplegada una vez superado el login, con los siguientes comp
 
 Dos tarjetas/botones interactivos de gran tamaño:
 1. Ir a **"Our Timeline & Map"**
-2. Ir a **"The Digital Vault"**
+2. Ir a **"Our Letters"**
 
 ---
 
@@ -93,7 +93,7 @@ Experiencia visual e interactiva para recorrer la historia juntos.
 
 ---
 
-### Fase 4 — Módulo 2: The Digital Vault (Cápsulas del Tiempo & Mensajes)
+### Fase 4 — Módulo 2: Letters (Cartas & Mensajes)
 
 Baúl digital interactivo dividido en dos categorías de mensajes.
 
@@ -112,7 +112,7 @@ Contenido al abrir: carta interactiva, video especial, nota de voz o galería de
 - **Estado desbloqueado:** se habilita automáticamente al llegar la fecha local/servidor.
 
 **C. Capacidad de gestión (solo Admin)**
-- Formulario para redactar nuevos mensajes del Vault.
+- Formulario para redactar nuevas cartas.
 - Opción para definir si el mensaje es de tipo Emocional/Libre o si requiere una Fecha de Desbloqueo Automático.
 - Capacidad de editar los formularios y la fecha de desbloqueo si es necesario.
 
@@ -124,7 +124,7 @@ Contenido al abrir: carta interactiva, video especial, nota de voz o galería de
 /app
   /dashboard        # Home post-login, memory counter, easter eggs
   /timeline          # Módulo 1: timeline + mapa
-  /vault             # Módulo 2: cartas y cápsulas
+  /letters           # Módulo 2: cartas personales
   /api               # Route handlers
 /components
 /lib

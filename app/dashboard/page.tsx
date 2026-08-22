@@ -74,6 +74,17 @@ export default async function DashboardPage() {
               isAdmin={isAdmin}
               adminNote="Puedes agregar y editar eventos"
             />
+
+            <NavCard
+              href="/letters"
+              icon="✉️"
+              title="Our Letters"
+              subtitle="module.letters"
+              description="Cartas para que las abras y las leas cuando quieras."
+              accentColor="violet"
+              isAdmin={isAdmin}
+              adminNote="Puedes escribir, editar y eliminar cartas"
+            />
           </section>
 
           <footer
